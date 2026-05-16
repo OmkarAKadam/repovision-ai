@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RepoVision AI | GitHub Intelligence Platform</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons (Lucide) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --surface: #111111;
+            --surface-2: #161616;
+            --border: #222222;
+            --accent: #00ff88;
+            --accent-dim: #00cc6a;
+            --accent-glow: rgba(0, 255, 136, 0.15);
+            --text: #e8e8e8;
+            --muted: #666666;
+            --error: #ff4444;
+            --warning: #ffaa00;
+            --info: #00aaff;
+            --transition: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'IBM Plex Sans', sans-serif;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, h4, .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        /* --- Animations --- */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+        }
+
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* --- Navbar --- */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+            background: rgba(10, 10, 10, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            transition: transform var(--transition);
+        }
+
+        nav.hidden {
+            transform: translateY(-100%);
+        }
+
+        .nav-content {
+            height: 70px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: var(--text);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color var(--transition);
+        }
+
+        .nav-links a:hover {
+            color: var(--accent);
+        }
+
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: none;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-dim);
+            box-shadow: 0 0 20px var(--accent-glow);
+            transform: translateY(-2px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+        }
+
+        .btn-outline:hover {
+            background: var(--accent-glow);
+            transform: translateY(-2px);
+        }
+
+        /* --- Hero Section --- */
+        .hero {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            background-image: 
+                radial-gradient(circle at 2px 2px, var(--border) 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, transparent 20%, var(--bg) 80%);
+            pointer-events: none;
+        }
+
+        .typewriter-container {
+            height: 1.5rem;
+            color: var(--accent);
+            font-weight: 700;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .hero h1 {
+            font-size: 4rem;
+            margin-bottom: 1.5rem;
+            max-width: 900px;
+            line-height: 1.1;
+        }
+
+        .hero p {
+            color: var(--muted);
+            max-width: 650px;
+            font-size: 1.1rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .hero-btns {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 4rem;
+        }
+
+        .stat-cards {
+            display: flex;
+            gap: 3rem;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .stat-val {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text);
+            font-family: 'JetBrains Mono';
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* --- How It Works --- */
+        section {
+            padding: 8rem 0;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 5rem;
+        }
+
+        .section-header h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .timeline {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .timeline::after {
+            content: '';
+            position: absolute;
+            top: 40px;
+            left: 10%;
+            width: 80%;
+            height: 2px;
+            background: var(--border);
+            z-index: -1;
+        }
+
+        .step {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 0 1rem;
+        }
+
+        .step-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--surface);
+            border: 2px solid var(--border);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            color: var(--accent);
+            transition: all var(--transition);
+        }
+
+        .step:hover .step-icon {
+            border-color: var(--accent);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .step h4 {
+            margin-bottom: 0.5rem;
+        }
+
+        .step p {
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        /* --- Agent Modules --- */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 2.5rem;
+            border-radius: 8px;
+            transition: all var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+            border-color: var(--accent);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px var(--accent-glow);
+        }
+
+        .card-icon {
+            color: var(--accent);
+            margin-bottom: 1.5rem;
+        }
+
+        .card h3 {
+            margin-bottom: 1rem;
+        }
+
+        .card-tag {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--accent);
+            background: var(--accent-glow);
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            display: inline-block;
+        }
+
+        .card ul {
+            list-style: none;
+            margin-top: 1.5rem;
+        }
+
+        .card li {
+            font-size: 0.9rem;
+            color: var(--muted);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card li::before {
+            content: '→';
+            color: var(--accent);
+        }
+
+        /* --- Tech Stack Strip --- */
+        .tech-strip {
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            padding: 2rem 0;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        .tech-track {
+            display: inline-block;
+            animation: scroll 40s linear infinite;
+        }
+
+        @keyframes scroll {
+            from { transform: translateX(0); }
+            to { transform: translateX(-50%); }
+        }
+
+        .tech-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--muted);
+            font-family: 'JetBrains Mono';
+            font-size: 1.1rem;
+            margin: 0 4rem;
+        }
+
+        .tech-item span {
+            color: var(--text);
+        }
+
+        /* --- Analyze Section --- */
+        .analyze-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 3rem;
+            border-radius: 12px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        .input-group input {
+            width: 100%;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            padding: 1.2rem 1.5rem;
+            border-radius: 6px;
+            color: var(--text);
+            font-family: 'JetBrains Mono';
+            font-size: 1.1rem;
+            outline: none;
+            transition: border-color var(--transition);
+        }
+
+        .input-group input:focus {
+            border-color: var(--accent);
+        }
+
+        .chip-group {
+            display: flex;
+            gap: 0.8rem;
+            margin-bottom: 2.5rem;
+            justify-content: center;
+        }
+
+        .chip {
+            padding: 0.5rem 1rem;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--muted);
+            transition: all var(--transition);
+        }
+
+        .chip.active {
+            background: var(--accent-glow);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .btn-large {
+            width: 100%;
+            padding: 1.2rem;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* Terminal Log */
+        .terminal {
+            margin-top: 3rem;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.5rem;
+            font-family: 'JetBrains Mono';
+            font-size: 0.9rem;
+            color: #00ff00;
+            display: none;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .terminal-line {
+            margin-bottom: 0.5rem;
+            opacity: 0;
+            animation: fadeIn 0.3s forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 8px;
+            height: 16px;
+            background: var(--accent);
+            animation: blink 1s infinite;
+            vertical-align: middle;
+        }
+
+        /* Results Panels */
+        .results {
+            margin-top: 4rem;
+            display: none;
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            transition: all 0.5s ease;
+        }
+
+        .panel-header {
+            padding: 1.5rem 2rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--surface-2);
+        }
+
+        .panel-header:hover {
+            background: #1c1c1c;
+        }
+
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .panel-content {
+            padding: 2rem;
+            display: none;
+        }
+
+        .panel.open .panel-content {
+            display: block;
+        }
+
+        .badge {
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .badge-green { background: rgba(0, 255, 136, 0.2); color: var(--accent); }
+        .badge-red { background: rgba(255, 68, 68, 0.2); color: var(--error); }
+        .badge-yellow { background: rgba(255, 170, 0, 0.2); color: var(--warning); }
+
+        .score-big {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--accent);
+            font-family: 'JetBrains Mono';
+        }
+
+        .progress-container {
+            margin-bottom: 1.5rem;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            width: 0;
+            transition: width 1.5s ease-out;
+        }
+
+        .issue-list {
+            margin-top: 1.5rem;
+        }
+
+        .issue-item {
+            padding: 1rem;
+            border-left: 3px solid var(--border);
+            background: var(--surface-2);
+            margin-bottom: 0.8rem;
+            border-radius: 0 4px 4px 0;
+        }
+
+        pre {
+            background: #000;
+            padding: 1rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            color: #ccc;
+        }
+
+        /* --- Footer --- */
+        footer {
+            background: #050505;
+            padding: 5rem 0 2rem;
+            border-top: 1px solid var(--border);
+            margin-top: 8rem;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 4rem;
+            margin-bottom: 4rem;
+        }
+
+        .footer-logo {
+            font-size: 1.5rem;
+            color: var(--accent);
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        .footer-tagline {
+            color: var(--muted);
+            max-width: 300px;
+        }
+
+        .footer-col h4 {
+            margin-bottom: 1.5rem;
+            font-size: 1rem;
+        }
+
+        .footer-col ul {
+            list-style: none;
+        }
+
+        .footer-col li {
+            margin-bottom: 0.8rem;
+        }
+
+        .footer-col a {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color var(--transition);
+        }
+
+        .footer-col a:hover {
+            color: var(--accent);
+        }
+
+        .footer-bottom {
+            border-top: 1px solid var(--border);
+            padding-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        /* --- Responsive --- */
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2.5rem; }
+            .nav-links { display: none; }
+            .timeline { flex-direction: column; gap: 3rem; }
+            .timeline::after { display: none; }
+            .footer-grid { grid-template-columns: 1fr 1fr; }
+            .stat-cards { gap: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav id="navbar">
+        <div class="container nav-content">
+            <a href="#" class="logo">⬡ RepoVision AI</a>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#how-it-works">How it Works</a>
+                <a href="#agents">Agents</a>
+                <a href="#analyze">Analyze</a>
+                <a href="#analyze" class="btn btn-primary">Try Now</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="hero">
+        <div class="typewriter-container mono" id="typewriter"></div>
+        <h1 class="reveal">See your codebase from above</h1>
+        <p class="reveal">13 specialized AI agents analyze your GitHub repository in parallel — reviewing PRs, triaging bugs, and scoring repo health simultaneously.</p>
+        <div class="hero-btns reveal">
+            <a href="#analyze" class="btn btn-primary">Analyze a Repo &rarr;</a>
+            <a href="https://github.com" target="_blank" class="btn btn-outline">View on GitHub</a>
+        </div>
+        <div class="stat-cards reveal">
+            <div class="stat-item">
+                <span class="stat-val">13</span>
+                <span class="stat-label">Agents</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-val">3</span>
+                <span class="stat-label">Modules</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-val">API</span>
+                <span class="stat-label">Real-time</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-val">OSS</span>
+                <span class="stat-label">Open Source</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- How It Works -->
+    <section id="how-it-works">
+        <div class="container">
+            <div class="section-header reveal">
+                <h2>Intelligent Orchestration</h2>
+                <p class="muted">A multi-agent swarm built for repository scale.</p>
+            </div>
+            <div class="timeline reveal">
+                <div class="step">
+                    <div class="step-icon"><i data-lucide="link"></i></div>
+                    <h4>Paste URL</h4>
+                    <p>Drop any GitHub repository or Pull Request URL into the engine.</p>
+                </div>
+                <div class="step">
+                    <div class="step-icon"><i data-lucide="zap"></i></div>
+                    <h4>13 Agents Activate</h4>
+                    <p>Sub-agents spawn in parallel to audit code, security, and health.</p>
+                </div>
+                <div class="step">
+                    <div class="step-icon"><i data-lucide="brain-circuit"></i></div>
+                    <h4>Get Intelligence</h4>
+                    <p>Receive a unified report with deep insights and actionable fixes.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Agent Modules -->
+    <section id="agents" style="background: var(--surface-2)">
+        <div class="container">
+            <div class="section-header reveal">
+                <h2>Specialized Brains</h2>
+                <p class="muted">Three core modules, each with its own internal multi-agent hierarchy.</p>
+            </div>
+            <div class="grid">
+                <!-- PR Reviewer -->
+                <div class="card reveal">
+                    <div class="card-icon"><i data-lucide="git-pull-request"></i></div>
+                    <span class="card-tag">ParallelAgent</span>
+                    <h3>PR Reviewer</h3>
+                    <p>Deep audit of incoming changes before they hit production.</p>
+                    <ul>
+                        <li>Logical bug detection</li>
+                        <li>Security vulnerability scan</li>
+                        <li>Test coverage assessment</li>
+                        <li>Automatic changelog writing</li>
+                    </ul>
+                </div>
+                <!-- Bug Triage -->
+                <div class="card reveal">
+                    <div class="card-icon"><i data-lucide="bug"></i></div>
+                    <span class="card-tag">LoopAgent · 3 Retries</span>
+                    <h3>Bug Triage</h3>
+                    <p>Self-healing issue management with autonomous verification.</p>
+                    <ul>
+                        <li>Automated issue classification</li>
+                        <li>Fix generation & testing</li>
+                        <li>Loop-based quality judging</li>
+                        <li>Draft PR generation</li>
+                    </ul>
+                </div>
+                <!-- Repo Health -->
+                <div class="card reveal">
+                    <div class="card-icon"><i data-lucide="shield-check"></i></div>
+                    <span class="card-tag">4 Specialists + Scorer</span>
+                    <h3>Repo Health</h3>
+                    <p>Comprehensive ecosystem audit for long-term sustainability.</p>
+                    <ul>
+                        <li>Documentation & compliance audit</li>
+                        <li>Dependency risk analysis</li>
+                        <li>Contributor health & bus factor</li>
+                        <li>Maintenance activity score</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tech Stack Strip -->
+    <div class="tech-strip">
+        <div class="tech-track">
+            <div class="tech-item">Framework <span>Google ADK</span></div>
+            <div class="tech-item">Protocol <span>FastMCP</span></div>
+            <div class="tech-item">Model <span>Gemini 2.0 Flash</span></div>
+            <div class="tech-item">API <span>FastAPI</span></div>
+            <div class="tech-item">Compute <span>Cloud Run</span></div>
+            <div class="tech-item">Memory <span>Vertex AI</span></div>
+            <!-- Duplicate for infinite loop -->
+            <div class="tech-item">Framework <span>Google ADK</span></div>
+            <div class="tech-item">Protocol <span>FastMCP</span></div>
+            <div class="tech-item">Model <span>Gemini 2.0 Flash</span></div>
+            <div class="tech-item">API <span>FastAPI</span></div>
+            <div class="tech-item">Compute <span>Cloud Run</span></div>
+            <div class="tech-item">Memory <span>Vertex AI</span></div>
+        </div>
+    </div>
+
+    <!-- Analyze Section -->
+    <section id="analyze">
+        <div class="container">
+            <div class="section-header reveal">
+                <h2>Analyze Your Code</h2>
+                <p class="muted">Drop in any GitHub URL and let the agents run.</p>
+            </div>
+            
+            <div class="analyze-box reveal">
+                <div class="input-group">
+                    <input type="text" id="target-input" placeholder="owner/repo or owner/repo/pull/N">
+                </div>
+                
+                <div class="chip-group">
+                    <div class="chip active" data-module="pr_review"><i data-lucide="check-circle"></i> PR Review</div>
+                    <div class="chip active" data-module="bug_triage"><i data-lucide="check-circle"></i> Bug Triage</div>
+                    <div class="chip active" data-module="repo_health"><i data-lucide="check-circle"></i> Repo Health</div>
+                </div>
+                
+                <button id="analyze-btn" class="btn btn-primary btn-large">Analyze Repository</button>
+                
+                <div id="terminal" class="terminal"></div>
+            </div>
+
+            <!-- Results -->
+            <div id="results-container" class="results">
+                
+                <!-- Panel 1: PR Review -->
+                <div class="panel" id="pr-panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><i data-lucide="git-pull-request"></i> PR Review Analysis</div>
+                        <i data-lucide="chevron-down"></i>
+                    </div>
+                    <div class="panel-content" id="pr-content">
+                        <!-- Dynamic content -->
+                    </div>
+                </div>
+
+                <!-- Panel 2: Bug Triage -->
+                <div class="panel" id="bug-panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><i data-lucide="bug"></i> Bug Triage Report</div>
+                        <i data-lucide="chevron-down"></i>
+                    </div>
+                    <div class="panel-content" id="bug-content">
+                        <!-- Dynamic content -->
+                    </div>
+                </div>
+
+                <!-- Panel 3: Repo Health -->
+                <div class="panel" id="health-panel">
+                    <div class="panel-header">
+                        <div class="panel-title"><i data-lucide="shield-check"></i> Repository Health Audit</div>
+                        <i data-lucide="chevron-down"></i>
+                    </div>
+                    <div class="panel-content" id="health-content">
+                        <!-- Dynamic content -->
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-col">
+                    <div class="footer-logo">⬡ RepoVision AI</div>
+                    <p class="footer-tagline">Multi-agent GitHub intelligence powered by Gemini 2.0 Flash and Google ADK.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Product</h4>
+                    <ul>
+                        <li><a href="#features">Features</a></li>
+                        <li><a href="#how-it-works">How it works</a></li>
+                        <li><a href="#agents">Agents</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Stack</h4>
+                    <ul>
+                        <li><a href="#">Google ADK</a></li>
+                        <li><a href="#">FastMCP</a></li>
+                        <li><a href="#">Gemini 2.0</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Connect</h4>
+                    <ul>
+                        <li><a href="#">GitHub</a></li>
+                        <li><a href="#">LinkedIn</a></li>
+                        <li><a href="#">Privacy</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div>Built with Google ADK · 13 agents · Open source</div>
+                <div>&copy; 2026 RepoVision AI. All rights reserved.</div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // --- Initialization ---
+        lucide.createIcons();
+
+        // --- Reveal Animations ---
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+        // --- Navbar Scroll logic ---
+        let lastScroll = 0;
+        const nav = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            const currentScroll = window.pageYOffset;
+            if (currentScroll <= 0) {
+                nav.classList.remove('hidden');
+                return;
+            }
+            if (currentScroll > lastScroll && !nav.classList.contains('hidden')) {
+                nav.classList.add('hidden');
+            } else if (currentScroll < lastScroll && nav.classList.contains('hidden')) {
+                nav.classList.remove('hidden');
+            }
+            lastScroll = currentScroll;
+        });
+
+        // --- Typewriter Effect ---
+        const phrases = ["PR Review", "Bug Triage", "Repo Health"];
+        let phraseIdx = 0;
+        let charIdx = 0;
+        let isDeleting = false;
+        const typewriterEl = document.getElementById('typewriter');
+
+        function type() {
+            const currentPhrase = phrases[phraseIdx];
+            if (isDeleting) {
+                typewriterEl.textContent = currentPhrase.substring(0, charIdx - 1);
+                charIdx--;
+            } else {
+                typewriterEl.textContent = currentPhrase.substring(0, charIdx + 1);
+                charIdx++;
+            }
+
+            if (!isDeleting && charIdx === currentPhrase.length) {
+                isDeleting = true;
+                setTimeout(type, 2000);
+            } else if (isDeleting && charIdx === 0) {
+                isDeleting = false;
+                phraseIdx = (phraseIdx + 1) % phrases.length;
+                setTimeout(type, 500);
+            } else {
+                setTimeout(type, isDeleting ? 50 : 150);
+            }
+        }
+        type();
+
+        // --- Chip Toggles ---
+        document.querySelectorAll('.chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                chip.classList.toggle('active');
+                const icon = chip.querySelector('i');
+                if (chip.classList.contains('active')) {
+                    icon.setAttribute('data-lucide', 'check-circle');
+                } else {
+                    icon.setAttribute('data-lucide', 'circle');
+                }
+                lucide.createIcons();
+            });
+        });
+
+        // --- Analyze Logic ---
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const terminal = document.getElementById('terminal');
+        const results = document.getElementById('results-container');
+        const targetInput = document.getElementById('target-input');
+
+        const logLines = [
+            "→ Orchestrator received request...",
+            "→ Spawning PR Reviewer (4 sub-agents)...",
+            "→ Initializing Bug Triage LoopAgent...",
+            "→ Scanning repo health (4 specialists)...",
+            "→ Accessing GitHub API via FastMCP...",
+            "→ Analyzing codebase patterns...",
+            "→ Running security heuristics...",
+            "→ Calculating contributor bus factor...",
+            "→ Aggregating intelligence...",
+            "→ Report generation finalized."
+        ];
+
+        async function addTerminalLine(line) {
+            const div = document.createElement('div');
+            div.className = 'terminal-line';
+            div.textContent = line;
+            terminal.appendChild(div);
+            terminal.scrollTop = terminal.scrollHeight;
+            await new Promise(r => setTimeout(r, 800));
+        }
+
+        analyzeBtn.addEventListener('click', async () => {
+            const target = targetInput.value.trim();
+            if (!target) return alert("Please enter a GitHub target.");
+
+            const activeModules = Array.from(document.querySelectorAll('.chip.active'))
+                                     .map(c => c.getAttribute('data-module'));
+
+            analyzeBtn.disabled = true;
+            analyzeBtn.textContent = "Analyzing...";
+            terminal.style.display = 'block';
+            terminal.innerHTML = '<div class="cursor"></div>';
+            results.style.display = 'none';
+
+            // Start terminal animation (simulated progress while fetch runs)
+            let animationFinished = false;
+            const animateLogs = async () => {
+                for (const line of logLines) {
+                    if (animationFinished) break;
+                    await addTerminalLine(line);
+                }
+            };
+            const logPromise = animateLogs();
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target, modules: activeModules })
+                });
+
+                if (!response.ok) throw new Error("API request failed");
+                const data = await response.json();
+                
+                animationFinished = true;
+                await addTerminalLine("✓ Analysis complete.");
+                
+                renderResults(data);
+                
+                setTimeout(() => {
+                    terminal.style.display = 'none';
+                    results.style.display = 'block';
+                    analyzeBtn.disabled = false;
+                    analyzeBtn.textContent = "Analyze Repository";
+                }, 1000);
+
+            } catch (err) {
+                animationFinished = true;
+                await addTerminalLine("✗ Error: " + err.message);
+                analyzeBtn.disabled = false;
+                analyzeBtn.textContent = "Try Again";
+            }
+        });
+
+        // --- Result Rendering ---
+        function renderResults(data) {
+            // Panel 1: PR Review
+            const prContent = document.getElementById('pr-content');
+            if (data.pr_review) {
+                const pr = data.pr_review;
+                const verdictClass = pr.verdict === 'APPROVE' ? 'badge-green' : (pr.verdict === 'REQUEST_CHANGES' ? 'badge-red' : 'badge-yellow');
+                prContent.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem;">
+                        <div>
+                            <div class="score-big">${pr.overall_score.toFixed(1)}<span style="font-size:1rem; color:var(--muted)">/10.0</span></div>
+                            <div style="color:var(--muted); font-size:0.9rem">Overall Quality Score</div>
+                        </div>
+                        <span class="badge ${verdictClass}" style="font-size:1.2rem; padding:0.5rem 1rem">${pr.verdict}</span>
+                    </div>
+                    <p style="margin-bottom:1.5rem">${pr.pr_summary}</p>
+                    <h4>Critical Issues</h4>
+                    <div class="issue-list">
+                        ${pr.critical_issues.map(issue => `
+                            <div class="issue-item">
+                                <div style="font-weight:600; margin-bottom:0.3rem">${issue}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <h4 style="margin-top:2rem; margin-bottom:1rem">Generated Changelog</h4>
+                    <pre>${pr.changelog}</pre>
+                `;
+            } else {
+                prContent.innerHTML = `<p class="muted">Module not run or no data available.</p>`;
+            }
+
+            // Panel 2: Bug Triage
+            const bugContent = document.getElementById('bug-content');
+            if (data.bug_triage) {
+                const bug = data.bug_triage;
+                // Note: Simplified as per ADK return structure
+                bugContent.innerHTML = `
+                    <div style="margin-bottom:2rem">
+                        <span class="badge badge-green">Loop Complete</span>
+                        <p style="margin-top:1rem">Targeting identified bugs with automated fixes and tests.</p>
+                    </div>
+                    <div class="issue-item">
+                        <div style="display:flex; justify-content:space-between; align-items:center">
+                            <strong>Proposed Fix Generated</strong>
+                            <a href="${bug.pr_url || '#'}" target="_blank" class="btn btn-outline" style="padding:0.3rem 0.8rem; font-size:0.8rem">View Draft PR</a>
+                        </div>
+                        <div class="progress-container" style="margin-top:1rem">
+                            <div class="progress-label"><span>Agent Confidence</span><span>92%</span></div>
+                            <div class="progress-bar"><div class="progress-fill" style="width: 92%"></div></div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                bugContent.innerHTML = `<p class="muted">Module not run or no data available.</p>`;
+            }
+
+            // Panel 3: Repo Health
+            const healthContent = document.getElementById('health-content');
+            if (data.repo_health) {
+                const h = data.repo_health;
+                const gradeColor = h.grade === 'A' ? 'var(--accent)' : (h.grade === 'B' ? 'var(--info)' : (h.grade === 'C' ? 'var(--warning)' : 'var(--error)'));
+                healthContent.innerHTML = `
+                    <div style="display:flex; gap:3rem; align-items:center; margin-bottom:3rem">
+                        <div style="font-size:6rem; font-weight:700; color:${gradeColor}; line-height:1; font-family:'JetBrains Mono'">${h.grade}</div>
+                        <div>
+                            <div style="font-size:1.5rem; font-weight:600">${h.status_label}</div>
+                            <p class="muted">${h.summary}</p>
+                        </div>
+                    </div>
+                    <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 2rem">
+                        <div>
+                            ${Object.entries(h.scores).map(([name, val]) => `
+                                <div class="progress-container">
+                                    <div class="progress-label"><span style="text-transform:capitalize">${name}</span><span>${(val*10).toFixed(0)}%</span></div>
+                                    <div class="progress-bar"><div class="progress-fill" style="width: ${val*10}%"></div></div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div>
+                            <h4>Recommendations</h4>
+                            <ul style="list-style:decimal; padding-left:1.2rem; margin-top:1rem">
+                                ${h.recommendations.map(rec => `<li style="margin-bottom:0.5rem; color:var(--text); font-size:0.9rem">${rec}</li>`).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            } else {
+                healthContent.innerHTML = `<p class="muted">Module not run or no data available.</p>`;
+            }
+        }
+
+        // --- Panel Interaction ---
+        document.querySelectorAll('.panel-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const panel = header.parentElement;
+                panel.classList.toggle('open');
+                const icon = header.querySelector('i[data-lucide^="chevron"]');
+                if (panel.classList.contains('open')) {
+                    icon.setAttribute('data-lucide', 'chevron-up');
+                } else {
+                    icon.setAttribute('data-lucide', 'chevron-down');
+                }
+                lucide.createIcons();
+            });
+        });
+
+    </script>
+</body>
+</html>
