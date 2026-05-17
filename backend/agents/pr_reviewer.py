@@ -1,71 +1,73 @@
-import sys
+import httpx
 import os
-from typing import Any, Dict, List
+import base64
 from pydantic import BaseModel
 from google.adk.agents import LlmAgent, ParallelAgent, SequentialAgent
-from google.adk.tools.mcp_tool.mcp_toolset import McpToolset, StdioConnectionParams
-from mcp import StdioServerParameters
+from google.adk.tools import FunctionTool
 
-# Input/Output Models
-class PrReviewInput(BaseModel):
-    repo: str
-    pr_number: int
+def get_pr_diff_direct(repo: str, pr_number: int) -> dict:
+    """Fetch PR diff directly."""
+    token = os.getenv("GITHUB_TOKEN", "")
+    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+    resp = httpx.get(f"https://api.github.com/repos/{repo}/pulls/{pr_number}",
+                     headers={**headers, "Accept": "application/vnd.github.v3.diff"}, timeout=30)
+    return {"diff": resp.text[:2000]} if resp.status_code == 200 else {"error": "Failed"}
 
-# MCP connection setup
-# Use an absolute path to ensure the subprocess can find the server script
-_server_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "mcp_server.py"))
-_mcp_params = StdioConnectionParams(
-    server_params=StdioServerParameters(
-        command=sys.executable,
-        args=[_server_path],
-        env=os.environ.copy()
-    )
-)
+def get_repo_context_direct(repo: str) -> dict:
+    """Fetch repo file structure."""
+    token = os.getenv("GITHUB_TOKEN", "")
+    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+    resp = httpx.get(f"https://api.github.com/repos/{repo}/git/trees/main?recursive=1",
+                     headers=headers, timeout=30)
+    if resp.status_code != 200:
+        resp = httpx.get(f"https://api.github.com/repos/{repo}/git/trees/master?recursive=1",
+                         headers=headers, timeout=30)
+    return {"files": [f['path'] for f in resp.json().get('tree', [])[:100]]} if resp.status_code == 200 else {"error": "Failed"}
 
 # 1. Code Quality Agent
 code_quality_agent = LlmAgent(
     name="code_quality_agent",
-    model="gemini-2.0-flash",
-    tools=[McpToolset(connection_params=_mcp_params)],
-    instruction="""You are a senior code reviewer. Use get_pr_diff and get_repo_context tools to fetch the PR data.
-    Identify: logic bugs, code smells, DRY/SOLID violations, performance issues, missing error handling.
-    Cite exact filenames and line ranges.
-    Output ONLY valid JSON (no markdown fences):
-    {"issues": [{"file": str, "line_range": str, "severity": "critical"|"major"|"minor", "description": str, "suggestion": str}], "overall_score": float}""",
+    model="gemini-2.5-flash",
+    tools=[FunctionTool(get_pr_diff_direct), FunctionTool(get_repo_context_direct)],
+    instruction="""Use get_pr_diff_direct and get_repo_context_direct.
+    Identify: logic bugs, code smells, DRY/SOLID violations, performance issues.
+    Cite exact filenames.
+    Output JSON (no markdown):
+    {"issues": [{"file": str, "severity": "major", "description": str, "suggestion": str}], "overall_score": float}""",
     output_key="code_quality_output"
 )
 
 # 2. Security Agent
 security_agent = LlmAgent(
     name="security_agent",
-    model="gemini-2.0-flash",
-    tools=[McpToolset(connection_params=_mcp_params)],
-    instruction="""You are a security engineer. Use get_pr_diff and get_repo_context tools.
-    Scan for: hardcoded secrets, SQL injection, XSS, insecure dependencies, exposed data in logs, missing input validation.
-    Output ONLY valid JSON:
-    {"vulnerabilities": [{"file": str, "type": str, "severity": "critical"|"high"|"medium"|"low", "description": str, "fix": str}], "security_score": float}""",
+    model="gemini-2.5-flash",
+    tools=[FunctionTool(get_pr_diff_direct)],
+    instruction="""Use get_pr_diff_direct.
+    Scan for: hardcoded secrets, SQL injection, XSS, insecure dependencies.
+    Output JSON (no markdown):
+    {"vulnerabilities": [{"file": str, "type": str, "severity": "high", "description": str, "fix": str}], "security_score": float}""",
     output_key="security_output"
 )
 
 # 3. Test Coverage Agent
 test_coverage_agent = LlmAgent(
     name="test_coverage_agent",
-    model="gemini-2.0-flash",
-    tools=[McpToolset(connection_params=_mcp_params)],
-    instruction="""You are a QA engineer. Use get_pr_diff and get_repo_context tools.
-    Identify: untested functions, missing edge case tests, missing integration tests for API changes.
-    Output ONLY valid JSON:
-    {"untested_functions": [str], "missing_test_cases": [str], "suggested_test_snippets": [{"description": str, "pseudocode": str}], "coverage_score": float}""",
+    model="gemini-2.5-flash",
+    tools=[FunctionTool(get_pr_diff_direct), FunctionTool(get_repo_context_direct)],
+    instruction="""Use get_pr_diff_direct and get_repo_context_direct.
+    Identify: untested functions, missing edge case tests.
+    Output JSON (no markdown):
+    {"untested_functions": [str], "missing_test_cases": [str], "coverage_score": float}""",
     output_key="test_coverage_output"
 )
 
 # 4. Changelog Agent
 changelog_agent = LlmAgent(
     name="changelog_agent",
-    model="gemini-2.0-flash",
-    tools=[McpToolset(connection_params=_mcp_params)],
-    instruction="""You are a technical writer. Use get_pr_diff tool.
-    Write a professional changelog entry. Format: H3 heading with PR title, bullets grouped as Added/Changed/Fixed/Removed. Each bullet max 15 words.
+    model="gemini-2.5-flash",
+    tools=[FunctionTool(get_pr_diff_direct)],
+    instruction="""Use get_pr_diff_direct.
+    Write a professional changelog entry. Format: H3 heading with PR title, bullets grouped.
     Output plain markdown string only.""",
     output_key="changelog_output"
 )
@@ -80,21 +82,15 @@ pr_review_parallel = ParallelAgent(
 # 5. Aggregator Agent
 pr_aggregator = LlmAgent(
     name="pr_aggregator",
-    model="gemini-2.0-flash",
-    instruction="""You receive outputs from 4 parallel review agents in the session state.
-    Read: code_quality_output, security_output, test_coverage_output, changelog_output.
-    Combine into ONE JSON object (no markdown fences):
+    model="gemini-2.5-flash",
+    instruction="""Combine outputs into JSON (no markdown fences):
     {
-      "pr_summary": "2 sentence summary",
-      "overall_score": float (avg of code/security/coverage scores),
-      "verdict": "APPROVE" | "REQUEST_CHANGES" | "NEEDS_DISCUSSION",
-      "critical_issues": [top 3 issues across all agents],
-      "code_quality": {"score": float, "issues": []},
-      "security": {"score": float, "vulnerabilities": []},
-      "test_coverage": {"score": float, "untested_functions": [], "suggestions": []},
+      "pr_summary": str,
+      "overall_score": float,
+      "verdict": "APPROVE" | "REQUEST_CHANGES",
+      "critical_issues": [top 3],
       "changelog": "markdown string"
-    }
-    Rule: verdict=APPROVE only if overall_score >= 7.5""",
+    }""",
     output_key="pr_review_final"
 )
 

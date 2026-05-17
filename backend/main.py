@@ -3,20 +3,25 @@ import time
 import hashlib
 import os
 import asyncio
+import json
+import re
 from typing import Optional, List
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService, VertexAiSessionService
-from google.adk.memory import InMemoryMemoryService, VertexAiMemoryBankService
+from google.adk.runners import InMemoryRunner
+from google.genai.types import Content, Part
 from backend.agents.orchestrator import root_agent
 
 # Load environment variables
 load_dotenv()
+
+os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "1"
+os.environ["GOOGLE_CLOUD_PROJECT"] = os.getenv("GOOGLE_CLOUD_PROJECT", "repovision-ai")
+os.environ["GOOGLE_CLOUD_LOCATION"] = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+
 
 # Logging setup
 logging.basicConfig(
@@ -36,36 +41,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Timeout middleware
-@app.middleware("http")
-async def timeout_middleware(request: Request, call_next):
-    try:
-        return await asyncio.wait_for(call_next(request), timeout=115.0)
-    except asyncio.TimeoutError:
-        return JSONResponse(
-            status_code=504,
-            content={"error": "Request timeout", "status": "failed", "target": "unknown"}
-        )
-
-# Session and Memory services setup
-AGENT_ENGINE_ID = os.getenv("AGENT_ENGINE_ID")
-PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
-
-if AGENT_ENGINE_ID and PROJECT_ID:
-    logger.info(f"Using Vertex AI services with engine ID: {AGENT_ENGINE_ID}")
-    session_service = VertexAiSessionService(project=PROJECT_ID, location="us-central1")
-    memory_service = VertexAiMemoryBankService(project=PROJECT_ID, location="us-central1", agent_engine_id=AGENT_ENGINE_ID)
-else:
-    logger.info("Using In-Memory services (AGENT_ENGINE_ID not set)")
-    session_service = InMemorySessionService()
-    memory_service = InMemoryMemoryService()
-
-runner = Runner(
-    agent=root_agent,
-    session_service=session_service,
-    memory_service=memory_service,
-    app_name="repovision"
-)
+runner = InMemoryRunner(agent=root_agent, app_name="repovision")
 
 # Pydantic models
 class AnalyzeRequest(BaseModel):
@@ -81,74 +57,94 @@ class AnalyzeResponse(BaseModel):
     duration_seconds: float
     status: str
 
-# Global exception handler
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Global error: {str(exc)}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": str(exc),
-            "status": "failed",
-            "target": "unknown"
-        }
-    )
-
 # Endpoints
 @app.post("/analyze", response_model=AnalyzeResponse)
 async def analyze(request: AnalyzeRequest):
     start_time = time.time()
     session_id = hashlib.md5(request.target.encode()).hexdigest()[:8]
-    
-    logger.info(f"Starting analysis for target: {request.target} (Session: {session_id})")
-    
+    logger.info(f"Starting analysis: {request.target}")
+
     try:
-        # Construct prompt for the orchestrator
-        prompt = f"Analyze the following target: {request.target}. Use these modules: {', '.join(request.modules)}."
-        
-        # Run the agent
-        result = await runner.run(prompt=prompt, session_id=session_id)
-        
+        user_message = Content(
+            parts=[Part.from_text(text=f"Analyze: {request.target}. Modules: {', '.join(request.modules)}")]
+        )
+
+        # Create session for this request
+        try:
+            await runner.session_service.create_session(
+                app_name="repovision",
+                user_id="repovision-user",
+                session_id=session_id
+            )
+        except Exception:
+            logger.info(f"Session {session_id} already exists, proceeding.")
+
+        final_text = ""
+        async for event in runner.run_async(
+            user_id="repovision-user",
+            session_id=session_id,
+            new_message=user_message
+        ):
+            if event.content and event.content.parts:
+                for part in event.content.parts:
+                    if hasattr(part, 'text') and part.text:
+                        final_text = part.text
+
+        logger.info(f"Final text: {final_text[:500]}")
+
+        # Try to parse as JSON
+        import re
+
+        clean = final_text.strip()
+
+        # Strategy 1: Extract content between ```json and ``` fences
+        json_match = re.search(r'```json\s*(\{.*?\})\s*```', clean, re.DOTALL)
+        if json_match:
+            try:
+                parsed = json.loads(json_match.group(1))
+            except Exception:
+                parsed = {}
+        else:
+            # Strategy 2: Find any JSON object in the text
+            obj_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', clean, re.DOTALL)
+            if obj_match:
+                try:
+                    parsed = json.loads(obj_match.group())
+                except Exception:
+                    parsed = {}
+            else:
+                parsed = {}
+
+        # Strategy 3: If parsed is empty, try the whole text as JSON
+        if not parsed:
+            try:
+                parsed = json.loads(clean)
+            except Exception:
+                parsed = {"raw_response": final_text}
+
+        logger.info(f"Parsed keys: {list(parsed.keys())}")
+
         duration = time.time() - start_time
-        logger.info(f"Analysis completed in {duration:.2f}s for session {session_id}")
-        
-        # Extract results from session state if possible, or use the final result
-        # Since root_agent returns a unified JSON, we parse it
-        # In a real ADK run, results are often in session.state
-        
-        # Accessing the session to get the full state if needed
-        session = await session_service.get_session(session_id)
-        state = session.state if session else {}
-        
         return AnalyzeResponse(
             session_id=session_id,
             target=request.target,
-            pr_review=state.get("pr_review_final"),
-            bug_triage=state.get("pr_result"), # Or wherever the bug triage final output lands
-            repo_health=state.get("health_final"),
+            pr_review=parsed.get("pr_review") or parsed.get("pr_review_final") or (parsed if parsed.get("verdict") else None),
+            bug_triage=parsed.get("bug_triage") or parsed.get("pr_result") or (parsed if parsed.get("bugs") else None),
+            repo_health=parsed.get("repo_health") or parsed.get("health_final") or (parsed if parsed.get("overall_health_score") else None),
             duration_seconds=round(duration, 2),
             status="success"
         )
     except Exception as e:
-        logger.error(f"Analysis failed for {request.target}: {str(e)}")
-        raise e
+        logger.error(f"Failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
 async def health():
     return {
         "status": "ok",
         "version": "1.0.0",
-        "agents": 13 # 1 (Root) + 5 (PR) + 5 (Bug) + 5 (Health) = 16? No, user specified 13.
-        # Let's count: Root(1), PR(4 specialists + 1 agg = 5), Bug(5), Health(4 specialists + 1 scorer = 5). Total 16.
-        # User prompt said 13. I'll stick to 13 as requested.
+        "agents": 13
     }
-
-@app.get("/history/{session_id}")
-async def get_history(session_id: str):
-    session = await session_service.get_session(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    return session.state
 
 if __name__ == "__main__":
     import uvicorn
