@@ -1000,9 +1000,9 @@
                 chip.classList.toggle('active');
                 const icon = chip.querySelector('i');
                 if (chip.classList.contains('active')) {
-                    icon.setAttribute('data-lucide', 'check-circle');
+                    if (icon) icon.setAttribute('data-lucide', 'check-circle');
                 } else {
-                    icon.setAttribute('data-lucide', 'circle');
+                    if (icon) icon.setAttribute('data-lucide', 'circle');
                 }
                 lucide.createIcons();
             });

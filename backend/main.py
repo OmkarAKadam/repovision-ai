@@ -5,7 +5,7 @@ import os
 import asyncio
 import json
 import re
-from typing import Optional, List
+from typing import Optional, List, Any
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -51,9 +51,9 @@ class AnalyzeRequest(BaseModel):
 class AnalyzeResponse(BaseModel):
     session_id: str
     target: str
-    pr_review: Optional[dict] = None
-    bug_triage: Optional[dict] = None
-    repo_health: Optional[dict] = None
+    pr_review: Optional[Any] = None
+    bug_triage: Optional[Any] = None
+    repo_health: Optional[Any] = None
     duration_seconds: float
     status: str
 
@@ -61,7 +61,7 @@ class AnalyzeResponse(BaseModel):
 @app.post("/analyze", response_model=AnalyzeResponse)
 async def analyze(request: AnalyzeRequest):
     start_time = time.time()
-    session_id = hashlib.md5(request.target.encode()).hexdigest()[:8]
+    session_id = hashlib.md5(f"{request.target}_{time.time()}".encode()).hexdigest()[:8]
     logger.info(f"Starting analysis: {request.target}")
 
     try:
@@ -80,15 +80,18 @@ async def analyze(request: AnalyzeRequest):
             logger.info(f"Session {session_id} already exists, proceeding.")
 
         final_text = ""
-        async for event in runner.run_async(
-            user_id="repovision-user",
-            session_id=session_id,
-            new_message=user_message
-        ):
-            if event.content and event.content.parts:
-                for part in event.content.parts:
-                    if hasattr(part, 'text') and part.text:
-                        final_text = part.text
+        try:
+            async for event in runner.run_async(
+                user_id="repovision-user",
+                session_id=session_id,
+                new_message=user_message
+            ):
+                if event.content and event.content.parts:
+                    for part in event.content.parts:
+                        if hasattr(part, 'text') and part.text:
+                            final_text = part.text
+        except Exception as e:
+            logger.warning(f"Agent run error (partial results may exist): {e}")
 
         logger.info(f"Final text: {final_text[:500]}")
 
@@ -122,15 +125,36 @@ async def analyze(request: AnalyzeRequest):
             except Exception:
                 parsed = {"raw_response": final_text}
 
+        def unwrap_module_response(data: dict, module_key: str):
+            """Unwrap deeply nested module responses."""
+            if module_key not in data:
+                return None
+            val = data[module_key]
+
+            # Unwrap module_response wrapper
+            if isinstance(val, dict) and f"{module_key}_module_response" in val:
+                val = val[f"{module_key}_module_response"]
+
+            # Unwrap result string
+            if isinstance(val, dict) and "result" in val:
+                result = val["result"]
+                if isinstance(result, str):
+                    try:
+                        result = json.loads(result)
+                    except Exception:
+                        pass
+                val = result
+            return val
+
         logger.info(f"Parsed keys: {list(parsed.keys())}")
 
         duration = time.time() - start_time
         return AnalyzeResponse(
             session_id=session_id,
             target=request.target,
-            pr_review=parsed.get("pr_review") or parsed.get("pr_review_final") or (parsed if parsed.get("verdict") else None),
-            bug_triage=parsed.get("bug_triage") or parsed.get("pr_result") or (parsed if parsed.get("bugs") else None),
-            repo_health=parsed.get("repo_health") or parsed.get("health_final") or (parsed if parsed.get("overall_health_score") else None),
+            pr_review=unwrap_module_response(parsed, "pr_review") or (parsed if parsed.get("verdict") else None),
+            bug_triage=unwrap_module_response(parsed, "bug_triage") or (parsed if parsed.get("bugs") else None),
+            repo_health=unwrap_module_response(parsed, "repo_health") or (parsed if parsed.get("overall_health_score") else None),
             duration_seconds=round(duration, 2),
             status="success"
         )
