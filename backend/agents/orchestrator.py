@@ -36,9 +36,12 @@ When given modules ["pr_review"]:
 
 When given all 3 modules:
 
-1. Call all 3 tools with the repo name
+1. Call the tools one at a time with the repo name. Do not call tools in parallel.
 
 2. Return: {"pr_review": <r1>, "bug_triage": <r2>, "repo_health": <r3>}
+
+Production API note: backend/main.py normally invokes this orchestrator once per
+module with a delay between calls to avoid Vertex AI rate limits.
 
 ALWAYS pass the exact repo string as the first argument to each tool.
 

@@ -1060,7 +1060,7 @@
             const logPromise = animateLogs();
 
             try {
-                const response = await fetch('https://repovision-backend-174510296487.us-central1.run.app/analyze', {
+                const response = await fetch('https://repovision-backend-7v3wad73wq-uc.a.run.app/analyze', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -1108,7 +1108,7 @@
                 prContent.innerHTML = `
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem;">
                         <div>
-                            <div class="score-big">${pr.overall_score.toFixed(1)}<span style="font-size:1rem; color:var(--muted)">/10.0</span></div>
+                            <div class="score-big">${(pr.overall_score ?? 0).toFixed(1)}<span style="font-size:1rem; color:var(--muted)">/10.0</span></div>
                             <div style="color:var(--muted); font-size:0.9rem">Overall Quality Score</div>
                         </div>
                         <span class="badge ${verdictClass}" style="font-size:1.2rem; padding:0.5rem 1rem">${pr.verdict}</span>
